@@ -8,6 +8,7 @@ import {
 import { installChunkedFetch, purgeLegacyCaches } from './chunked-fetch.js';
 
 const MODEL_ID = 'gemma-3-1b-it';
+const REMOTE_MODEL_ID = 'onnx-community/gemma-3-1b-it-ONNX';
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const MODEL_BASE_PATH = `${BASE_PATH}models/${MODEL_ID}/`;
 const MODEL_BASE_URL = new URL(MODEL_BASE_PATH, self.location.origin).href;
@@ -136,20 +137,59 @@ async function disposeModel() {
   activeDtype = null;
 }
 
+async function hasLocalShardedModel() {
+  try {
+    const res = await fetch(MANIFEST_URL, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) return false;
+    const data = await res.json();
+    return Boolean(data && data.files);
+  } catch {
+    return false;
+  }
+}
+
 async function loadVariant(device, dtype = 'q4') {
+  const useLocal = await hasLocalShardedModel();
+  const targetModel = useLocal ? MODEL_ID : REMOTE_MODEL_ID;
+
+  env.allowLocalModels = useLocal;
+  env.allowRemoteModels = !useLocal;
+
+  const progress_callback = useLocal
+    ? undefined
+    : (info) => {
+        if (info?.status === 'progress' && info.total) {
+          self.postMessage({
+            type: 'load-progress',
+            data: {
+              file: info.file || 'model',
+              completedChunks: 0,
+              totalChunks: 0,
+              loadedBytes: info.loaded || 0,
+              totalBytes: info.total || 0,
+              percent: Math.min(100, Math.round(info.progress || 0)),
+              speedMBs: 0,
+            },
+          });
+        }
+      };
+
   self.postMessage({
     type: 'status',
     data: {
       stage: 'loading-tokenizer',
       device,
       dtype,
-      message: `Đang nạp tokenizer vào RAM (${device.toUpperCase()})...`,
+      message: `Đang nạp tokenizer vào RAM (${device.toUpperCase()}${useLocal ? '' : ' • Hugging Face'})...`,
     },
   });
 
   if (!tokenizer) {
-    tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID, {
-      local_files_only: true,
+    tokenizer = await AutoTokenizer.from_pretrained(targetModel, {
+      local_files_only: useLocal,
+      progress_callback,
     });
   }
 
@@ -159,17 +199,18 @@ async function loadVariant(device, dtype = 'q4') {
       stage: 'loading-model',
       device,
       dtype,
-      message: `Đang truyền trọng số Gemma 3 1B (${dtype}) vào RAM (${device.toUpperCase()})...`,
+      message: `Đang truyền trọng số Gemma 3 1B (${dtype}) vào RAM (${device.toUpperCase()}${useLocal ? '' : ' • Hugging Face'})...`,
     },
   });
 
   await disposeModel();
 
-  model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+  model = await AutoModelForCausalLM.from_pretrained(targetModel, {
     device,
     dtype,
-    local_files_only: true,
+    local_files_only: useLocal,
     use_external_data_format: dtype === 'q4' ? undefined : false,
+    progress_callback,
   });
 
   activeBackend = device;

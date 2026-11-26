@@ -446,11 +446,20 @@ worker.addEventListener('message', (event) => {
       numbersText: `${currentPct}%`,
     });
   } else if (type === 'load-progress') {
-    const isTokenizer = data.file === 'tokenizer.json';
-    const label = isTokenizer
-      ? `Đang nạp tokenizer vào RAM (${data.completedChunks}/${data.totalChunks} mảnh)...`
-      : `Đang truyền Gemma 3 1B vào RAM (${data.completedChunks}/${data.totalChunks} mảnh ≤20MB)...`;
-    const numbersText = `${data.percent}% • ${formatMB(data.loadedBytes)} / ${formatMB(data.totalBytes)} • ${data.speedMBs} MB/s`;
+    const isTokenizer = data.file?.includes('tokenizer.json');
+    let label;
+    let numbersText;
+    if (data.totalChunks > 0) {
+      label = isTokenizer
+        ? `Đang nạp tokenizer vào RAM (${data.completedChunks}/${data.totalChunks} mảnh)...`
+        : `Đang truyền Gemma 3 1B vào RAM (${data.completedChunks}/${data.totalChunks} mảnh ≤20MB)...`;
+      numbersText = `${data.percent}% • ${formatMB(data.loadedBytes)} / ${formatMB(data.totalBytes)} • ${data.speedMBs} MB/s`;
+    } else {
+      label = isTokenizer
+        ? 'Đang tải tokenizer vào RAM (Hugging Face)...'
+        : `Đang tải ${data.file || 'Gemma 3 1B'} vào RAM (Hugging Face)...`;
+      numbersText = `${data.percent}% • ${formatMB(data.loadedBytes)} / ${formatMB(data.totalBytes)}`;
+    }
     showBanner({ label, percent: data.percent, numbersText });
   } else if (type === 'ready') {
     state.isLoading = false;
