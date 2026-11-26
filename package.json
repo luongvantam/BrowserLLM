@@ -1,0 +1,22 @@
+{
+  "name": "browser-llm",
+  "version": "2.0.0",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "description": "Gemma 3 1B browser AI (<=20MB chunks, RAM-only streaming, WebGPU + WASM)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare-model": "node scripts/prepare-model.mjs",
+    "verify-chunks": "node scripts/verify-chunks.mjs",
+    "verify-dist": "node -e \"import('node:fs').then(async fs=>{const walk=async d=>{for(const e of await fs.promises.readdir(d,{withFileTypes:true})){const p=d+'/'+e.name;if(e.isDirectory())await walk(p);else{const s=(await fs.promises.stat(p)).size;if(s>20000000)throw new Error('Oversized: '+p+' ('+s+')');}}};await walk('dist');console.log('dist verified: all files <= 20,000,000 bytes');})\""
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.2"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

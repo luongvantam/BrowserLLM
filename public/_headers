@@ -1,0 +1,7 @@
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/models/*
+  Cache-Control: public, max-age=0, s-maxage=31536000
+  Cross-Origin-Resource-Policy: same-origin
