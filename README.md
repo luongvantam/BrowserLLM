@@ -1,6 +1,6 @@
 # BrowserLLM — Gemma 3 1B Browser AI
 
-Ứng dụng chạy **Google Gemma 3 1B-IT** (`onnx-community/gemma-3-1b-it-ONNX`) trực tiếp trên trình duyệt với giao diện ChatGPT-style, thanh tiến độ nạp gọn gàng và hỗ trợ đọc file đầu vào.
+Ứng dụng chạy **Google Gemma 3 1B-IT** (`onnx-community/gemma-3-1b-it-ONNX`) trực tiếp trên trình duyệt, thanh tiến độ nạp gọn gàng và hỗ trợ đọc file đầu vào.
 
 ## Đặc điểm chính
 
