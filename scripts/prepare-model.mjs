@@ -30,10 +30,10 @@ const METADATA_FILES = [
 
 function parseArgs(argv) {
   const opts = {
-    repo: 'onnx-community/gemma-3-1b-it-ONNX',
-    variants: ['q4', 'int8'],
+    repo: 'onnx-community/Qwen3-4B-Thinking-2507-ONNX',
+    variants: ['q4'],
     chunkSize: 20_000_000,
-    out: 'public/models/gemma-3-1b-it',
+    out: 'public/models/qwen3-4b-thinking',
     cleanCache: false,
   };
 

@@ -7,8 +7,9 @@ import {
 } from '@huggingface/transformers';
 import { clearChunkCache, installChunkedFetch } from './chunked-fetch.js';
 
-const MODEL_ID = 'gemma-3-1b-it';
-const REMOTE_MODEL_ID = 'onnx-community/gemma-3-1b-it-ONNX';
+const MODEL_ID = 'qwen3-4b-thinking';
+const REMOTE_WEBGPU_MODEL_ID = 'onnx-community/Qwen3-4B-Thinking-2507-ONNX';
+const REMOTE_WASM_MODEL_ID = 'onnx-community/Qwen2.5-Coder-1.5B-Instruct';
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const MODEL_BASE_PATH = `${BASE_PATH}models/${MODEL_ID}/`;
 const MODEL_BASE_URL = new URL(MODEL_BASE_PATH, self.location.origin).href;
@@ -97,31 +98,16 @@ async function detectCapabilities() {
   };
 }
 
-function normalizeGemmaMessages(rawMessages) {
+function normalizeMessages(rawMessages) {
   const cleaned = [];
-  let systemText = '';
-
   for (const msg of rawMessages || []) {
     const content = String(msg?.content || '').trim();
     if (!content) continue;
-    if (msg.role === 'system') {
-      systemText = systemText ? `${systemText}\n${content}` : content;
-    } else if (msg.role === 'user' || msg.role === 'assistant') {
-      const prev = cleaned[cleaned.length - 1];
-      if (prev && prev.role === msg.role) {
-        prev.content = `${prev.content}\n\n${content}`;
-      } else {
-        cleaned.push({ role: msg.role, content });
-      }
+    if (msg.role === 'system' || msg.role === 'user' || msg.role === 'assistant') {
+      cleaned.push({ role: msg.role, content });
     }
   }
-
-  // Gemma chat_template requires conversation turns after optional system to start with user
-  while (cleaned.length > 0 && cleaned[0].role !== 'user') {
-    cleaned.shift();
-  }
-
-  return systemText ? [{ role: 'system', content: systemText }, ...cleaned] : cleaned;
+  return cleaned;
 }
 
 async function disposeModel() {
@@ -151,11 +137,17 @@ async function hasLocalShardedModel() {
 }
 
 async function loadVariant(device, dtype = 'q4') {
-  const useLocal = await hasLocalShardedModel();
-  const targetModel = useLocal ? MODEL_ID : REMOTE_MODEL_ID;
+  const useLocal = device === 'webgpu' ? await hasLocalShardedModel() : false;
+  const targetModel = useLocal
+    ? MODEL_ID
+    : device === 'webgpu'
+      ? REMOTE_WEBGPU_MODEL_ID
+      : REMOTE_WASM_MODEL_ID;
+  const modelLabel = device === 'webgpu' ? 'Qwen3-4B-Thinking' : 'Qwen2.5-Coder-1.5B';
 
   env.allowLocalModels = useLocal;
   env.allowRemoteModels = !useLocal;
+  env.useBrowserCache = !useLocal;
 
   const progress_callback = useLocal
     ? undefined
@@ -164,7 +156,7 @@ async function loadVariant(device, dtype = 'q4') {
           self.postMessage({
             type: 'load-progress',
             data: {
-              file: info.file || 'model',
+              file: info.file || modelLabel,
               completedChunks: 0,
               totalChunks: 0,
               loadedBytes: info.loaded || 0,
@@ -182,16 +174,14 @@ async function loadVariant(device, dtype = 'q4') {
       stage: 'loading-tokenizer',
       device,
       dtype,
-      message: `Đang nạp tokenizer vào RAM (${device.toUpperCase()}${useLocal ? '' : ' • Hugging Face'})...`,
+      message: `Đang nạp tokenizer ${modelLabel} (${device.toUpperCase()})...`,
     },
   });
 
-  if (!tokenizer) {
-    tokenizer = await AutoTokenizer.from_pretrained(targetModel, {
-      local_files_only: useLocal,
-      progress_callback,
-    });
-  }
+  tokenizer = await AutoTokenizer.from_pretrained(targetModel, {
+    local_files_only: useLocal,
+    progress_callback,
+  });
 
   self.postMessage({
     type: 'status',
@@ -199,7 +189,7 @@ async function loadVariant(device, dtype = 'q4') {
       stage: 'loading-model',
       device,
       dtype,
-      message: `Đang truyền trọng số Gemma 3 1B (${dtype}) vào RAM (${device.toUpperCase()}${useLocal ? '' : ' • Hugging Face'})...`,
+      message: `Đang truyền trọng số ${modelLabel} (${dtype}) (${device.toUpperCase()})...`,
     },
   });
 
@@ -209,7 +199,7 @@ async function loadVariant(device, dtype = 'q4') {
     device,
     dtype,
     local_files_only: useLocal,
-    use_external_data_format: dtype === 'q4' ? undefined : false,
+    use_external_data_format: device === 'webgpu' ? undefined : false,
     progress_callback,
   });
 
@@ -227,27 +217,27 @@ async function handleLoad({ preferredBackend = 'auto' } = {}) {
   if (preferredBackend === 'webgpu') {
     await loadVariant('webgpu', 'q4');
   } else if (preferredBackend === 'wasm') {
-    await loadVariant('wasm', 'int8');
+    await loadVariant('wasm', 'q8');
   } else {
     if (caps.webgpuSupported) {
       try {
         await loadVariant('webgpu', 'q4');
       } catch (err) {
-        fallbackReason = `WebGPU không khả dụng (${err?.message || err}), tự động chuyển sang WASM CPU`;
+        fallbackReason = `WebGPU không khả dụng (${err?.message || err}), tự động chuyển sang WASM CPU (Qwen2.5-Coder-1.5B)`;
         self.postMessage({
           type: 'status',
           data: {
             stage: 'fallback',
             device: 'wasm',
-            dtype: 'int8',
+            dtype: 'q8',
             message: fallbackReason,
           },
         });
-        await loadVariant('wasm', 'int8');
+        await loadVariant('wasm', 'q8');
       }
     } else {
-      fallbackReason = caps.webgpuReason || 'Chuyển sang WASM CPU (int8)';
-      await loadVariant('wasm', 'int8');
+      fallbackReason = caps.webgpuReason || 'Chuyển sang WASM CPU (Qwen2.5-Coder-1.5B)';
+      await loadVariant('wasm', 'q8');
     }
   }
 
@@ -276,7 +266,7 @@ async function handleGenerate({
     throw new Error('Model chưa được nạp vào RAM.');
   }
 
-  const normalized = normalizeGemmaMessages(messages);
+  const normalized = normalizeMessages(messages);
   if (normalized.length === 0 || normalized[normalized.length - 1].role !== 'user') {
     throw new Error('Tin nhắn người dùng không hợp lệ.');
   }
@@ -317,7 +307,7 @@ async function handleGenerate({
     },
   });
 
-  const safeMaxTokens = Math.max(16, Math.min(Number(maxNewTokens) || 2048, 8192));
+  const safeMaxTokens = Math.max(16, Math.min(Number(maxNewTokens) || 2048, 16384));
   const useSample = Boolean(doSample) && temperature > 0.01;
   await model.generate({
     ...inputs,

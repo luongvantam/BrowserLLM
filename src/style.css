@@ -854,6 +854,30 @@ code {
   font-size: 0.84rem;
 }
 
+.think-block {
+  margin: 0 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 6px 10px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.think-block summary {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  color: #6ee7b7;
+}
+
+.think-body {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  line-height: 1.5;
+}
+
 .assistant-meta {
   margin-top: 5px;
   font-size: 0.72rem;

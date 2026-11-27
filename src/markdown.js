@@ -89,14 +89,41 @@ function renderTextBlock(blockText) {
 
 export function renderMarkdown(markdown) {
   if (!markdown) return '';
+
+  let thinkHtml = '';
+  let rest = markdown;
+  const openIdx = rest.indexOf('<think>');
+  if (openIdx !== -1) {
+    const closeIdx = rest.indexOf('</think>', openIdx + 7);
+    if (closeIdx !== -1) {
+      const thinkContent = rest.slice(openIdx + 7, closeIdx).trim();
+      rest = `${rest.slice(0, openIdx)}${rest.slice(closeIdx + 8)}`.trim();
+      if (thinkContent) {
+        thinkHtml =
+          `<details class="think-block">` +
+          `<summary>Quá trình suy luận (Thinking)</summary>` +
+          `<div class="think-body">${renderTextBlock(thinkContent)}</div>` +
+          `</details>`;
+      }
+    } else {
+      const thinkContent = rest.slice(openIdx + 7).trim();
+      rest = rest.slice(0, openIdx).trim();
+      thinkHtml =
+        `<details class="think-block" open>` +
+        `<summary>Đang suy luận...</summary>` +
+        `<div class="think-body">${renderTextBlock(thinkContent)}</div>` +
+        `</details>`;
+    }
+  }
+
   const fenceRegex = /```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g;
   const parts = [];
   let lastIndex = 0;
   let match;
 
-  while ((match = fenceRegex.exec(markdown)) !== null) {
+  while ((match = fenceRegex.exec(rest)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(renderTextBlock(markdown.slice(lastIndex, match.index)));
+      parts.push(renderTextBlock(rest.slice(lastIndex, match.index)));
     }
     const lang = escapeHtml(match[1] || 'code');
     const code = escapeHtml(match[2].replace(/\n$/, ''));
@@ -109,9 +136,9 @@ export function renderMarkdown(markdown) {
     lastIndex = fenceRegex.lastIndex;
   }
 
-  if (lastIndex < markdown.length) {
-    parts.push(renderTextBlock(markdown.slice(lastIndex)));
+  if (lastIndex < rest.length) {
+    parts.push(renderTextBlock(rest.slice(lastIndex)));
   }
 
-  return parts.join('');
+  return `${thinkHtml}${parts.join('')}`;
 }

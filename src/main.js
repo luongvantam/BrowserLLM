@@ -317,9 +317,9 @@ function updateControls() {
   });
 
   els.promptInput.placeholder = state.isReady
-    ? 'Nhắn tin cho Gemma 3 1B... (Enter để gửi, Shift+Enter xuống dòng)'
+    ? 'Nhắn tin cho Qwen3-4B-Thinking... (Enter để gửi, Shift+Enter xuống dòng)'
     : state.isLoading
-      ? 'Đang nạp model vào RAM, vui lòng đợi...'
+      ? 'Đang nạp model, vui lòng đợi...'
       : 'Vui lòng nạp model ở thanh phía trên trước khi nhắn tin...';
 
   if (state.isGenerating) {
@@ -347,7 +347,7 @@ function startLoadModel() {
   state.isReady = false;
   setStatus('loading', 'Đang nạp...');
   showBanner({
-    label: 'Đang chuẩn bị truyền Gemma 3 1B vào RAM...',
+    label: 'Đang chuẩn bị nạp Qwen3-4B-Thinking...',
     percent: 0,
     numbersText: '0%',
     required: false,
@@ -660,7 +660,7 @@ document.querySelectorAll('.preset-chip').forEach((btn) => {
 });
 
 function syncMaxTokens(val) {
-  const clamped = Math.max(16, Math.min(4096, Number.parseInt(val, 10) || 2048));
+  const clamped = Math.max(16, Math.min(8192, Number.parseInt(val, 10) || 2048));
   els.maxTokens.value = String(clamped);
   els.maxTokensInput.value = String(clamped);
 }

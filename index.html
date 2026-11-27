@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23171717'/%3E%3Cpath d='M32 14l4.5 13.5L50 32l-13.5 4.5L32 50l-4.5-13.5L14 32l13.5-4.5z' fill='%2310a37f'/%3E%3C/svg%3E" />
-  <title>Gemma 3 1B • Browser AI</title>
+  <title>Qwen3-4B-Thinking • BrowserLLM</title>
 </head>
 
 <body>
@@ -58,7 +58,7 @@
             </svg>
           </button>
           <div class="model-title">
-            <span>Gemma 3 1B</span>
+            <span>Qwen3-4B Thinking</span>
             <span class="backend-pill" id="backend-pill">Chưa nạp</span>
           </div>
         </div>
@@ -78,7 +78,7 @@
         <div class="progress-row">
           <div class="progress-info">
             <span class="progress-label" id="progress-label">
-              Đang tự động khởi tạo &amp; nạp Gemma 3 1B...
+              Đang tự động khởi tạo &amp; nạp Qwen3-4B-Thinking...
             </span>
             <span class="progress-numbers" id="progress-numbers">0%</span>
           </div>
@@ -100,19 +100,18 @@
             </div>
             <h1>Hôm nay tôi có thể giúp gì cho bạn?</h1>
             <p>
-              Chạy trực tiếp <strong>Google Gemma 3 1B-IT</strong> trên trình duyệt qua WebGPU / WASM.
-              Hãy nhấn <strong>Nạp model ngay</strong> ở thanh phía trên (hoặc ở thanh bên phải) để bắt đầu.
+              Chạy <strong>Qwen3-4B-Thinking-2507</strong> (LiveCodeBench 55.2% • Codeforces 1852 Elo) trực tiếp trên trình duyệt qua WebGPU, tự động fallback sang WASM CPU (Qwen2.5-Coder-1.5B).
             </p>
             <div class="starter-grid">
               <button class="starter-card" type="button"
-                data-prompt="Xin chào, bạn là ai? Giới thiệu ngắn gọn về khả năng của bạn.">
-                <strong>Giới thiệu bản thân</strong>
-                <span>Hỏi Gemma 3 1B bằng tiếng Việt</span>
+                data-prompt="Giải bài toán lập trình thi đấu sau bằng C++ tối ưu: Cho mảng n <= 2e5 số nguyên, tìm độ dài dãy con liên tiếp dài nhất có tổng bằng k. Giải thích độ phức tạp.">
+                <strong>Thuật toán C++ (Codeforces)</strong>
+                <span>Prefix Sum + Hash Map O(n)</span>
               </button>
               <button class="starter-card" type="button"
-                data-prompt="Giải thích sự khác nhau giữa WebGPU và WebAssembly (WASM) khi chạy LLM trên trình duyệt, kèm bảng so sánh ngắn.">
-                <strong>WebGPU vs WASM</strong>
-                <span>So sánh hiệu năng chạy AI client-side</span>
+                data-prompt="Viết code Python giải bài Knapsack 0/1 tối ưu bộ nhớ O(W) kèm giải thích từng bước.">
+                <strong>Quy hoạch động 0/1 Knapsack</strong>
+                <span>Python tối ưu bộ nhớ O(W)</span>
               </button>
               <button class="starter-card" type="button"
                 data-prompt="Viết một hàm JavaScript debounce sạch sẽ kèm ví dụ sử dụng.">
@@ -120,9 +119,9 @@
                 <span>Tạo hàm debounce kèm giải thích</span>
               </button>
               <button class="starter-card" type="button"
-                data-prompt="Lên kế hoạch học tiếng Anh giao tiếp trong 30 ngày, mỗi ngày 20 phút.">
-                <strong>Lập kế hoạch 30 ngày</strong>
-                <span>Gợi ý lộ trình học hiệu quả</span>
+                data-prompt="Giải thích sự khác nhau giữa Dijkstra và Bellman-Ford kèm khi nào nên dùng mỗi thuật toán.">
+                <strong>Đồ thị: Dijkstra vs Bellman-Ford</strong>
+                <span>So sánh thuật toán đường đi ngắn nhất</span>
               </button>
             </div>
           </div>
@@ -176,8 +175,8 @@
         <section class="panel-block">
           <div class="model-card-title">
             <span class="status-dot" id="status-dot"></span>
-            <strong>Gemma 3 1B-IT</strong>
-            <span class="tag">q4 / int8</span>
+            <strong>Qwen3-4B-Thinking</strong>
+            <span class="tag">CF 1852</span>
           </div>
           <div class="caps-list" id="caps-badges">
             <span class="cap-pill">Đang kiểm tra phần cứng...</span>
@@ -186,8 +185,8 @@
             <span>Backend thực thi</span>
             <select id="backend-select" aria-label="Chọn backend thực thi">
               <option value="auto">Tự động (WebGPU → WASM)</option>
-              <option value="webgpu">WebGPU (q4 • ~859 MB)</option>
-              <option value="wasm">WASM CPU (int8 • ~1.0 GB)</option>
+              <option value="webgpu">WebGPU (Qwen3-4B q4 • ~2.9 GB)</option>
+              <option value="wasm">WASM CPU (Coder-1.5B q8)</option>
             </select>
           </label>
           <div class="model-btn-row">
@@ -221,10 +220,10 @@
           <div class="param-row">
             <div class="param-label">
               <span>Max output tokens</span>
-              <input id="max-tokens-input" class="num-input" type="number" min="16" max="4096" step="16" value="2048" />
+              <input id="max-tokens-input" class="num-input" type="number" min="16" max="8192" step="16" value="2048" />
             </div>
-            <input id="max-tokens" type="range" min="16" max="4096" step="16" value="2048" />
-            <div class="range-scale"><span>16</span><span>2048</span><span>4096</span></div>
+            <input id="max-tokens" type="range" min="16" max="8192" step="16" value="2048" />
+            <div class="range-scale"><span>16</span><span>2048</span><span>8192</span></div>
           </div>
 
           <div class="param-row">
@@ -377,9 +376,8 @@
               <p>Mã nguồn ứng dụng được phát hành theo giấy phép <strong>MIT License</strong> (Copyright &copy; 2026 luongvantam).</p>
             </div>
             <div class="license-card">
-              <strong>Google Gemma 3 1B-IT (ONNX)</strong>
-              <p>Mô hình nguồn mở thuộc dòng Gemma 3 của Google, phân phối theo <em>Gemma Terms of Use</em> (Google).
-              </p>
+              <strong>Qwen3-4B-Thinking-2507 &amp; Qwen2.5-Coder-1.5B (ONNX)</strong>
+              <p>Mô hình lập trình &amp; suy luận thuộc dòng Qwen của Alibaba, phát hành theo giấy phép <em>Apache-2.0</em>.</p>
             </div>
             <div class="license-card">
               <strong>Transformers.js &amp; ONNX Runtime Web</strong>
