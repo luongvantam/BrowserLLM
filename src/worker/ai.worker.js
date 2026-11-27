@@ -5,7 +5,7 @@ import {
   TextStreamer,
   env,
 } from '@huggingface/transformers';
-import { installChunkedFetch, purgeLegacyCaches } from './chunked-fetch.js';
+import { clearChunkCache, installChunkedFetch } from './chunked-fetch.js';
 
 const MODEL_ID = 'gemma-3-1b-it';
 const REMOTE_MODEL_ID = 'onnx-community/gemma-3-1b-it-ONNX';
@@ -218,7 +218,6 @@ async function loadVariant(device, dtype = 'q4') {
 }
 
 async function handleLoad({ preferredBackend = 'auto' } = {}) {
-  await purgeLegacyCaches();
   const caps = await detectCapabilities();
   self.postMessage({ type: 'capabilities', data: caps });
 
@@ -354,7 +353,6 @@ self.addEventListener('message', async (event) => {
   const { type, payload } = event.data || {};
   try {
     if (type === 'init') {
-      await purgeLegacyCaches();
       const caps = await detectCapabilities();
       self.postMessage({ type: 'capabilities', data: caps });
     } else if (type === 'load') {
@@ -366,8 +364,10 @@ self.addEventListener('message', async (event) => {
     } else if (type === 'unload') {
       await disposeModel();
       tokenizer = null;
-      await purgeLegacyCaches();
       self.postMessage({ type: 'unloaded' });
+    } else if (type === 'clear-cache') {
+      await clearChunkCache();
+      self.postMessage({ type: 'cache-cleared' });
     }
   } catch (err) {
     self.postMessage({

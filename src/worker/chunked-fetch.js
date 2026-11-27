@@ -1,24 +1,30 @@
-const LEGACY_CACHE_NAMES = [
-  'ai-model-chunks-v1',
-  'transformers-cache',
-  'transformers-wasm-cache',
-];
+const CHUNK_CACHE_NAME = 'browserllm-chunks-v1';
 
 let originalFetch = null;
 let installedConfig = null;
 let manifestPromise = null;
 
-export async function purgeLegacyCaches() {
-  if (typeof caches === 'undefined') return;
+async function openChunkCache() {
+  if (typeof caches === 'undefined') return null;
+  try {
+    return await caches.open(CHUNK_CACHE_NAME);
+  } catch {
+    return null;
+  }
+}
+
+export async function clearChunkCache() {
+  if (typeof caches === 'undefined') return false;
   try {
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter((k) => LEGACY_CACHE_NAMES.includes(k) || k.startsWith('transformers'))
+        .filter((k) => k === CHUNK_CACHE_NAME || k.startsWith('ai-model-chunks') || k.startsWith('transformers'))
         .map((k) => caches.delete(k))
     );
+    return true;
   } catch {
-    // Ignore cache access errors
+    return false;
   }
 }
 
@@ -43,7 +49,7 @@ export function installChunkedFetch({
 
   const loadManifestOnce = () => {
     if (!manifestPromise) {
-      manifestPromise = originalFetch(installedConfig.manifestUrl, { cache: 'no-store' }).then((res) => {
+      manifestPromise = originalFetch(installedConfig.manifestUrl, { cache: 'no-cache' }).then((res) => {
         if (!res.ok) {
           manifestPromise = null;
           throw new Error(`Không thể tải chunks-manifest.json (HTTP ${res.status})`);
@@ -72,10 +78,8 @@ export function installChunkedFetch({
     const manifest = await loadManifestOnce();
     const fileMeta = manifest.files?.[relPath];
 
-    // Normal unsplit files inside /models/ (config, model_q4.onnx, etc.) also bypass disk HTTP cache
     if (!fileMeta) {
-      const nextInit = { ...(init || {}), cache: 'no-store' };
-      return originalFetch(input, nextInit);
+      return originalFetch(input, init);
     }
 
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
@@ -83,13 +87,13 @@ export function installChunkedFetch({
       'Content-Type': fileMeta.contentType || 'application/octet-stream',
       'Content-Length': String(fileMeta.totalBytes),
       'Accept-Ranges': 'bytes',
-      'Cache-Control': 'no-store',
     });
 
     if (method === 'HEAD') {
       return new Response(null, { status: 200, headers });
     }
 
+    const cache = await openChunkCache();
     const chunks = fileMeta.chunks;
     const totalChunks = chunks.length;
     const totalBytes = fileMeta.totalBytes;
@@ -121,19 +125,35 @@ export function installChunkedFetch({
     const startFetchChunk = (idx) => {
       if (idx < 0 || idx >= totalChunks || inFlight.has(idx)) return;
       const chunk = chunks[idx];
+      const chunkUrl = chunkUrls[idx];
+
       const promise = (async () => {
-        const res = await originalFetch(chunkUrls[idx], {
-          cache: 'no-store',
-          signal: init?.signal,
-        });
+        if (cache) {
+          const cached = await cache.match(chunkUrl);
+          if (cached) {
+            const bytes = new Uint8Array(await cached.arrayBuffer());
+            if (bytes.byteLength === chunk.bytes) {
+              completedChunks += 1;
+              loadedBytes += bytes.byteLength;
+              emitProgress();
+              return bytes;
+            }
+          }
+        }
+
+        const res = await originalFetch(chunkUrl, { signal: init?.signal });
         if (!res.ok) {
           throw new Error(`Tải chunk ${chunk.path} thất bại (HTTP ${res.status})`);
         }
+        const clone = cache ? res.clone() : null;
         const bytes = new Uint8Array(await res.arrayBuffer());
         if (bytes.byteLength !== chunk.bytes) {
           throw new Error(
             `Kích thước chunk ${chunk.path} không khớp (${bytes.byteLength} != ${chunk.bytes})`
           );
+        }
+        if (cache && clone) {
+          await cache.put(chunkUrl, clone).catch(() => {});
         }
         completedChunks += 1;
         loadedBytes += bytes.byteLength;

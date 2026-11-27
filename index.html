@@ -73,16 +73,16 @@
         </div>
       </header>
 
-      <!-- COMPACT REQUIRED LOAD / PROGRESS BANNER -->
-      <div class="progress-banner required" id="progress-banner">
+      <!-- COMPACT AUTO-LOAD / PROGRESS BANNER -->
+      <div class="progress-banner" id="progress-banner">
         <div class="progress-row">
           <div class="progress-info">
             <span class="progress-label" id="progress-label">
-              Cần nạp Gemma 3 1B vào RAM trước khi bắt đầu trò chuyện
+              Đang tự động khởi tạo &amp; nạp Gemma 3 1B...
             </span>
-            <span class="progress-numbers" id="progress-numbers">Chưa nạp</span>
+            <span class="progress-numbers" id="progress-numbers">0%</span>
           </div>
-          <button id="banner-load-btn" class="banner-load-btn" type="button">Nạp model ngay</button>
+          <button id="banner-load-btn" class="banner-load-btn" type="button" hidden>Nạp lại</button>
         </div>
         <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           id="progress-track">
@@ -361,11 +361,13 @@
             </label>
             <div class="data-status-box">
               <div>
-                <strong>Chế độ lưu trữ: RAM-only (Zero Storage)</strong>
-                <p>Không ghi trọng số model, lịch sử chat hay dữ liệu cá nhân lên Cache API, IndexedDB hoặc
-                  localStorage.</p>
+                <strong>Cache từng mảnh ≤ 20 MB &amp; Dữ liệu phiên</strong>
+                <p>Các mảnh model được lưu tạm vào Cache trình duyệt để lần sau mở lại không cần tải lại 800MB+. Lịch sử chat chỉ giữ trong RAM.</p>
               </div>
-              <button id="modal-clear-history-btn" class="btn-ghost" type="button">Xóa toàn bộ phiên chat</button>
+              <div class="model-btn-row">
+                <button id="modal-clear-cache-btn" class="btn-ghost" type="button">Xóa cache model</button>
+                <button id="modal-clear-history-btn" class="btn-ghost" type="button">Xóa lịch sử chat</button>
+              </div>
             </div>
           </div>
 

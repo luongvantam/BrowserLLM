@@ -33,6 +33,7 @@ const els = {
   prefDensity: document.getElementById('pref-density'),
   prefShowStarters: document.getElementById('pref-show-starters'),
   userContext: document.getElementById('user-context'),
+  modalClearCacheBtn: document.getElementById('modal-clear-cache-btn'),
   modalClearHistoryBtn: document.getElementById('modal-clear-history-btn'),
   userLang: document.getElementById('user-lang'),
   userTone: document.getElementById('user-tone'),
@@ -525,6 +526,14 @@ worker.addEventListener('message', (event) => {
       showLoadBtn: true,
     });
     updateControls();
+  } else if (type === 'cache-cleared') {
+    showBanner({
+      label: 'Đã xóa cache các mảnh model trên trình duyệt.',
+      percent: state.isReady ? 100 : 0,
+      numbersText: state.isReady ? '100%' : '0%',
+      required: !state.isReady,
+      showLoadBtn: !state.isReady,
+    });
   } else if (type === 'error') {
     state.isLoading = false;
     state.isGenerating = false;
@@ -610,6 +619,11 @@ els.settingsTabs.forEach((tabBtn) => {
 els.prefFontSize.addEventListener('change', applyUiSettings);
 els.prefDensity.addEventListener('change', applyUiSettings);
 els.prefShowStarters.addEventListener('change', applyUiSettings);
+els.modalClearCacheBtn.addEventListener('click', () => {
+  if (state.isLoading || state.isGenerating) return;
+  worker.postMessage({ type: 'clear-cache' });
+  els.settingsModal.hidden = true;
+});
 els.modalClearHistoryBtn.addEventListener('click', () => {
   if (state.isGenerating) return;
   state.sessions = [];
@@ -758,3 +772,4 @@ createSession();
 applyUiSettings();
 updateControls();
 worker.postMessage({ type: 'init' });
+startLoadModel();
