@@ -97,7 +97,7 @@ async function downloadFileWithProgress(url, destPath, label) {
   }
 
   const tmpPath = `${destPath}.tmp`;
-  const maxAttempts = 6;
+  const maxAttempts = 15;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     let existingTmp = 0;
@@ -117,7 +117,7 @@ async function downloadFileWithProgress(url, destPath, label) {
     } catch (fetchErr) {
       if (attempt < maxAttempts) {
         console.warn(`\n  [retry ${attempt}/${maxAttempts}] ${label} fetch error: ${fetchErr.message}`);
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        await new Promise((r) => setTimeout(r, Math.min(3000, 1000 * attempt)));
         continue;
       }
       throw fetchErr;
@@ -162,18 +162,24 @@ async function downloadFileWithProgress(url, destPath, label) {
       });
     } catch (streamErr) {
       writer.destroy();
+      if (downloaded - existingTmp > 1_000_000) {
+        attempt = 0;
+      }
       if (attempt < maxAttempts) {
-        console.warn(`\n  [retry ${attempt}/${maxAttempts}] ${label} stream error: ${streamErr.message}`);
-        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        console.warn(`\n  [retry] ${label} stream error: ${streamErr.message}, resuming from ${formatMB(downloaded)}...`);
+        await new Promise((r) => setTimeout(r, 1500));
         continue;
       }
       throw streamErr;
     }
 
     if (total && downloaded !== total) {
+      if (downloaded - existingTmp > 1_000_000) {
+        attempt = 0;
+      }
       if (attempt < maxAttempts) {
         console.warn(
-          `\n  [retry ${attempt}/${maxAttempts}] ${label} truncated (${downloaded}/${total} bytes), resuming...`
+          `\n  [retry] ${label} truncated (${downloaded}/${total} bytes), resuming...`
         );
         continue;
       }

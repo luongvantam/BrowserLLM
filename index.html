@@ -73,16 +73,16 @@
         </div>
       </header>
 
-      <!-- COMPACT AUTO-LOAD / PROGRESS BANNER -->
+      <!-- COMPACT SERVER STATUS / PROGRESS BANNER -->
       <div class="progress-banner" id="progress-banner">
         <div class="progress-row">
           <div class="progress-info">
             <span class="progress-label" id="progress-label">
-              Đang tự động khởi tạo &amp; nạp Qwen3-4B-Thinking...
+              Đang kết nối tới AI Server...
             </span>
             <span class="progress-numbers" id="progress-numbers">0%</span>
           </div>
-          <button id="banner-load-btn" class="banner-load-btn" type="button" hidden>Nạp lại</button>
+          <button id="banner-load-btn" class="banner-load-btn" type="button" hidden>Thử kết nối lại</button>
         </div>
         <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           id="progress-track">
@@ -100,7 +100,7 @@
             </div>
             <h1>Hôm nay tôi có thể giúp gì cho bạn?</h1>
             <p>
-              Chạy <strong>Qwen3-4B-Thinking-2507</strong> (LiveCodeBench 55.2% • Codeforces 1852 Elo) trực tiếp trên trình duyệt qua WebGPU, tự động fallback sang WASM CPU (Qwen2.5-Coder-1.5B).
+              Chạy trực tiếp trên <strong>AI Server</strong> — mở web lên là dùng ngay lập tức, <strong>không cần tải model về máy người dùng</strong>.
             </p>
             <div class="starter-grid">
               <button class="starter-card" type="button"
@@ -175,25 +175,14 @@
         <section class="panel-block">
           <div class="model-card-title">
             <span class="status-dot" id="status-dot"></span>
-            <strong>Qwen3-4B-Thinking</strong>
-            <span class="tag">CF 1852</span>
+            <strong id="server-model-name">Server AI</strong>
+            <span class="tag">0 MB Client</span>
           </div>
           <div class="caps-list" id="caps-badges">
-            <span class="cap-pill">Đang kiểm tra phần cứng...</span>
+            <span class="cap-pill">Đang kiểm tra server...</span>
           </div>
-          <label class="field-label">
-            <span>Backend thực thi</span>
-            <select id="backend-select" aria-label="Chọn backend thực thi">
-              <option value="auto">Tự động (WebGPU → WASM)</option>
-              <option value="webgpu">WebGPU (Qwen3-4B q4 • ~2.9 GB)</option>
-              <option value="wasm">WASM CPU (Coder-1.5B q8)</option>
-            </select>
-          </label>
           <div class="model-btn-row">
-            <button id="load-btn" class="btn-secondary" type="button">Nạp model</button>
-            <button id="unload-btn" class="btn-ghost" type="button" disabled title="Giải phóng RAM ngay">
-              Giải phóng RAM
-            </button>
+            <button id="load-btn" class="btn-secondary" type="button">Kiểm tra kết nối</button>
           </div>
         </section>
 
