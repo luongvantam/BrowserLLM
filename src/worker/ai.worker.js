@@ -7,11 +7,13 @@ import {
 } from '@huggingface/transformers';
 import { clearChunkCache, installChunkedFetch } from './chunked-fetch.js';
 
-const MODEL_ID = 'qwen3-4b-thinking';
-const REMOTE_WEBGPU_MODEL_ID = 'onnx-community/Qwen3-4B-Thinking-2507-ONNX';
-const REMOTE_WASM_MODEL_ID = 'onnx-community/Qwen2.5-Coder-1.5B-Instruct';
-const BASE_PATH = import.meta.env.BASE_URL || '/';
-const MODEL_BASE_PATH = `${BASE_PATH}models/${MODEL_ID}/`;
+const MODEL_ID = 'qwen3.5-0.8b';
+const REMOTE_WEBGPU_MODEL_ID = 'onnx-community/Qwen3.5-0.8B-Text-ONNX';
+const REMOTE_WASM_MODEL_ID = 'onnx-community/Qwen2.5-Coder-0.5B-Instruct';
+const MODELS_ROOT_PATH = import.meta.env.DEV
+  ? '/models/'
+  : new URL('../models/', self.location.href).pathname;
+const MODEL_BASE_PATH = `${MODELS_ROOT_PATH}${MODEL_ID}/`;
 const MODEL_BASE_URL = new URL(MODEL_BASE_PATH, self.location.origin).href;
 const MANIFEST_URL = new URL('chunks-manifest.json', MODEL_BASE_URL).href;
 
@@ -28,8 +30,8 @@ const patchedFetch = installChunkedFetch({
 env.allowLocalModels = true;
 env.allowRemoteModels = false;
 env.useBrowserCache = false;
-env.useWasmCache = false;
-env.localModelPath = `${BASE_PATH}models/`;
+env.useWasmCache = true;
+env.localModelPath = MODELS_ROOT_PATH;
 env.fetch = patchedFetch;
 
 if (env.backends?.onnx?.wasm) {
@@ -143,7 +145,7 @@ async function loadVariant(device, dtype = 'q4') {
     : device === 'webgpu'
       ? REMOTE_WEBGPU_MODEL_ID
       : REMOTE_WASM_MODEL_ID;
-  const modelLabel = device === 'webgpu' ? 'Qwen3-4B-Thinking' : 'Qwen2.5-Coder-1.5B';
+  const modelLabel = device === 'webgpu' ? 'Qwen3.5-0.8B' : 'Qwen2.5-Coder-0.5B';
 
   env.allowLocalModels = useLocal;
   env.allowRemoteModels = !useLocal;
@@ -223,7 +225,7 @@ async function handleLoad({ preferredBackend = 'auto' } = {}) {
       try {
         await loadVariant('webgpu', 'q4');
       } catch (err) {
-        fallbackReason = `WebGPU không khả dụng (${err?.message || err}), tự động chuyển sang WASM CPU (Qwen2.5-Coder-1.5B)`;
+        fallbackReason = `WebGPU không khả dụng (${err?.message || err}), tự động chuyển sang WASM CPU (Qwen2.5-Coder-0.5B)`;
         self.postMessage({
           type: 'status',
           data: {
@@ -236,7 +238,7 @@ async function handleLoad({ preferredBackend = 'auto' } = {}) {
         await loadVariant('wasm', 'q8');
       }
     } else {
-      fallbackReason = caps.webgpuReason || 'Chuyển sang WASM CPU (Qwen2.5-Coder-1.5B)';
+      fallbackReason = caps.webgpuReason || 'Chuyển sang WASM CPU (Qwen2.5-Coder-0.5B)';
       await loadVariant('wasm', 'q8');
     }
   }

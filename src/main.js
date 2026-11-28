@@ -1,6 +1,10 @@
 import { renderMarkdown } from './markdown.js';
 import './style.css';
 
+const worker = new Worker(new URL('./worker/ai.worker.js', import.meta.url), {
+  type: 'module',
+});
+
 const SYSTEM_PRESETS = {
   default: 'Bạn là trợ lý AI thông minh, trả lời rõ ràng, chính xác và tự nhiên theo ngôn ngữ của người dùng.',
   code: 'Bạn là kỹ sư phần mềm cao cấp. Hãy phân tích kỹ, viết code sạch, tối ưu, giải thích ngắn gọn và nêu rõ các edge case quan trọng.',
@@ -37,9 +41,10 @@ const els = {
   prefShowStats: document.getElementById('pref-show-stats'),
   prefAutoScroll: document.getElementById('pref-auto-scroll'),
   statusDot: document.getElementById('status-dot'),
-  serverModelName: document.getElementById('server-model-name'),
   capsBadges: document.getElementById('caps-badges'),
+  backendSelect: document.getElementById('backend-select'),
   loadBtn: document.getElementById('load-btn'),
+  unloadBtn: document.getElementById('unload-btn'),
   backendPill: document.getElementById('backend-pill'),
   progressBanner: document.getElementById('progress-banner'),
   progressLabel: document.getElementById('progress-label'),
@@ -78,10 +83,9 @@ const els = {
 
 const state = {
   isReady: false,
-  isLoading: true,
+  isLoading: false,
   isGenerating: false,
-  abortController: null,
-  pollTimer: null,
+  requestCounter: 0,
   sessions: [],
   activeSessionId: null,
   attachments: [],
@@ -223,6 +227,10 @@ function renderAttachments() {
   });
 }
 
+function formatMB(bytes) {
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
 function setStatus(mode, pillText) {
   els.statusDot.classList.remove('loading', 'ready', 'error');
   els.backendPill.classList.remove('ready');
@@ -244,6 +252,22 @@ function showBanner({ label, percent, numbersText, required = false, showLoadBtn
   els.progressFill.style.width = `${clamped}%`;
   els.progressTrack.setAttribute('aria-valuenow', String(clamped));
   els.progressNumbers.textContent = numbersText ?? `${clamped}%`;
+}
+
+function renderCapabilities(caps) {
+  const pills = [];
+  if (caps.webgpuSupported) {
+    pills.push(`<span class="cap-pill ok">WebGPU (${caps.gpuAdapterName || 'GPU'})</span>`);
+  } else {
+    pills.push('<span class="cap-pill">Không có WebGPU → WASM</span>');
+  }
+  pills.push(
+    `<span class="cap-pill ${caps.crossOriginIsolated ? 'ok' : ''}">WASM ${caps.wasmThreads} luồng</span>`
+  );
+  if (caps.wasmSimd) {
+    pills.push('<span class="cap-pill ok">SIMD</span>');
+  }
+  els.capsBadges.innerHTML = pills.join('');
 }
 
 function applyUiSettings() {
@@ -274,7 +298,9 @@ function buildEffectiveSystemPrompt() {
 
 function updateControls() {
   const hasContent = els.promptInput.value.trim().length > 0 || state.attachments.length > 0;
-  els.loadBtn.disabled = state.isGenerating;
+  els.loadBtn.disabled = state.isLoading || state.isGenerating;
+  els.unloadBtn.disabled = (!state.isReady && !state.isLoading) || state.isGenerating;
+  els.backendSelect.disabled = state.isLoading || state.isGenerating;
   els.promptInput.disabled = !state.isReady || state.isGenerating;
   els.attachBtn.disabled = !state.isReady || state.isGenerating;
   els.starterCards.forEach((btn) => {
@@ -282,10 +308,10 @@ function updateControls() {
   });
 
   els.promptInput.placeholder = state.isReady
-    ? 'Nhắn tin cho AI Server... (Enter để gửi, Shift+Enter xuống dòng)'
+    ? 'Nhắn tin cho Qwen3.5-0.8B... (Enter để gửi, Shift+Enter xuống dòng)'
     : state.isLoading
-      ? 'Server đang nạp model, vui lòng đợi trong giây lát...'
-      : 'Chưa kết nối được AI Server (/api/health)...';
+      ? 'Đang nạp model, vui lòng đợi...'
+      : 'Vui lòng nạp model ở thanh phía trên trước khi nhắn tin...';
 
   if (state.isGenerating) {
     els.actionBtn.disabled = false;
@@ -306,82 +332,24 @@ function updateControls() {
   }
 }
 
-async function pollServerHealth() {
-  if (state.pollTimer) {
-    clearTimeout(state.pollTimer);
-    state.pollTimer = null;
-  }
+function startLoadModel() {
+  if (state.isLoading || state.isGenerating) return;
+  state.isLoading = true;
+  state.isReady = false;
+  setStatus('loading', 'Đang nạp...');
+  showBanner({
+    label: 'Đang chuẩn bị nạp Qwen3.5-0.8B...',
+    percent: 0,
+    numbersText: '0%',
+    required: false,
+    showLoadBtn: false,
+  });
+  updateControls();
 
-  try {
-    const res = await fetch('/api/health', { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    const shortModel = String(data.model || 'Server AI').split('/').pop();
-    els.serverModelName.textContent = shortModel;
-    els.capsBadges.innerHTML = [
-      `<span class="cap-pill ok">${data.backend || 'SERVER'}</span>`,
-      `<span class="cap-pill ok">0 MB Client</span>`,
-    ].join('');
-
-    if (data.status === 'ready') {
-      const wasLoading = !state.isReady;
-      state.isReady = true;
-      state.isLoading = false;
-      setStatus('ready', data.backend || 'SERVER');
-      if (wasLoading) {
-        showBanner({
-          label: `Server sẵn sàng (${shortModel}) • Dùng ngay, không cần tải về máy`,
-          percent: 100,
-          numbersText: '100%',
-        });
-        state.progressHideTimer = setTimeout(() => {
-          els.progressBanner.hidden = true;
-        }, 2000);
-      }
-      updateControls();
-      return;
-    }
-
-    if (data.status === 'error') {
-      state.isReady = false;
-      state.isLoading = false;
-      setStatus('error', 'Lỗi Server');
-      showBanner({
-        label: data.message || 'Lỗi khởi tạo model trên server',
-        percent: 0,
-        numbersText: 'Lỗi',
-        required: true,
-        showLoadBtn: true,
-      });
-      updateControls();
-      return;
-    }
-
-    state.isReady = false;
-    state.isLoading = true;
-    setStatus('loading', 'Server đang nạp...');
-    showBanner({
-      label: data.message || 'Server đang nạp model...',
-      percent: data.progress || 0,
-      numbersText: `${data.progress || 0}%`,
-    });
-    updateControls();
-    state.pollTimer = setTimeout(pollServerHealth, 1200);
-  } catch {
-    state.isReady = false;
-    state.isLoading = false;
-    setStatus('error', 'Mất kết nối');
-    els.capsBadges.innerHTML = '<span class="cap-pill">Không thấy AI Server (:3001)</span>';
-    showBanner({
-      label: 'Chưa kết nối được AI Server. Hãy chạy "npm run server" (hoặc "npm start").',
-      percent: 0,
-      numbersText: 'Offline',
-      required: true,
-      showLoadBtn: true,
-    });
-    updateControls();
-  }
+  worker.postMessage({
+    type: 'load',
+    payload: { preferredBackend: els.backendSelect.value },
+  });
 }
 
 function buildPromptWithAttachments(userText, files) {
@@ -397,7 +365,7 @@ function buildPromptWithAttachments(userText, files) {
   return `${basePrompt}\n\n${fileBlocks.join('\n\n')}`;
 }
 
-async function sendPrompt(text) {
+function sendPrompt(text) {
   const userText = text.trim();
   const files = [...state.attachments];
   if ((!userText && files.length === 0) || !state.isReady || state.isGenerating) return;
@@ -434,102 +402,147 @@ async function sendPrompt(text) {
     ...session.messages.slice(-turns).map(({ role, content }) => ({ role, content })),
   ];
 
-  const assistantNode = appendMessageNode('assistant', '', 'Đang xử lý trên server...');
+  const assistantNode = appendMessageNode('assistant', '', 'Đang xử lý...');
   state.activeAssistantBody = assistantNode.body;
   state.activeAssistantMeta = assistantNode.meta;
   state.activeAssistantText = '';
   state.isGenerating = true;
-  state.abortController = new AbortController();
+  state.requestCounter += 1;
   updateControls();
 
-  let finalMeta = '';
-  let wasInterrupted = false;
+  worker.postMessage({
+    type: 'generate',
+    payload: {
+      requestId: state.requestCounter,
+      messages: historyMessages,
+      maxNewTokens: Number.parseInt(els.maxTokens.value, 10),
+      temperature: Number.parseFloat(els.temperature.value),
+      topP: Number.parseFloat(els.topP.value),
+      topK: Number.parseInt(els.topK.value, 10),
+      repetitionPenalty: Number.parseFloat(els.repPenalty.value),
+      doSample: els.doSample.checked,
+    },
+  });
+}
 
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: state.abortController.signal,
-      body: JSON.stringify({
-        messages: historyMessages,
-        maxNewTokens: Number.parseInt(els.maxTokens.value, 10),
-        temperature: Number.parseFloat(els.temperature.value),
-        topP: Number.parseFloat(els.topP.value),
-        topK: Number.parseInt(els.topK.value, 10),
-        repetitionPenalty: Number.parseFloat(els.repPenalty.value),
-        doSample: els.doSample.checked,
-      }),
+worker.addEventListener('message', (event) => {
+  const { type, data } = event.data || {};
+
+  if (type === 'capabilities') {
+    renderCapabilities(data);
+  } else if (type === 'status') {
+    const currentPct = Number.parseInt(els.progressTrack.getAttribute('aria-valuenow') || '0', 10);
+    showBanner({
+      label: data.message,
+      percent: currentPct,
+      numbersText: `${currentPct}%`,
     });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || `HTTP ${res.status}`);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data:')) continue;
-        const data = JSON.parse(trimmed.slice(5).trim());
-        if (data.type === 'token') {
-          state.activeAssistantText += data.text;
-          state.activeAssistantBody.innerHTML = renderMarkdown(state.activeAssistantText);
-          if (els.prefShowStats.checked) {
-            state.activeAssistantMeta.hidden = false;
-            state.activeAssistantMeta.textContent =
-              `${data.backend || 'SERVER'} • ${data.tokenCount} tokens • ${data.tokensPerSecond} tok/s` +
-              (data.ttftMs ? ` • TTFT ${data.ttftMs}ms` : '');
-          }
-          if (els.prefAutoScroll.checked) {
-            els.chatScroll.scrollTop = els.chatScroll.scrollHeight;
-          }
-        } else if (data.type === 'done') {
-          finalMeta =
-            `${data.backend || 'SERVER'} • ${data.tokenCount} tokens • ` +
-            `${data.tokensPerSecond} tok/s • TTFT ${data.ttftMs}ms • ${(data.totalMs / 1000).toFixed(2)}s` +
-            (data.interrupted ? ' • Đã dừng' : '');
-        } else if (data.type === 'error') {
-          throw new Error(data.message);
-        }
-      }
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      wasInterrupted = true;
-      finalMeta = `${state.activeAssistantMeta?.textContent || 'SERVER'} • Đã dừng`;
+  } else if (type === 'load-progress') {
+    const isTokenizer = data.file?.includes('tokenizer.json');
+    let label;
+    let numbersText;
+    if (data.totalChunks > 0) {
+      label = isTokenizer
+        ? `Đang nạp tokenizer (${data.completedChunks}/${data.totalChunks} mảnh)...`
+        : `Đang nạp trọng số (${data.completedChunks}/${data.totalChunks} mảnh)...`;
+      numbersText = `${data.percent}% • ${formatMB(data.loadedBytes)} / ${formatMB(data.totalBytes)} • ${data.speedMBs} MB/s`;
     } else {
-      state.activeAssistantBody.innerHTML = `<p>Lỗi server: ${err.message}</p>`;
+      label = isTokenizer
+        ? 'Đang tải tokenizer...'
+        : `Đang tải ${data.file || 'model'} (sẽ cache cho lần sau)...`;
+      numbersText = `${data.percent}% • ${formatMB(data.loadedBytes)} / ${formatMB(data.totalBytes)}`;
     }
-  } finally {
+    showBanner({ label, percent: data.percent, numbersText });
+  } else if (type === 'ready') {
+    state.isLoading = false;
+    state.isReady = true;
+    const label = `${data.device.toUpperCase()} (${data.dtype})`;
+    setStatus('ready', label);
+    const doneMsg = data.fallbackReason
+      ? `Sẵn sàng trên ${label} • ${data.fallbackReason}`
+      : `Sẵn sàng trên ${label} (${(data.loadTimeMs / 1000).toFixed(1)}s)`;
+    showBanner({ label: doneMsg, percent: 100, numbersText: '100%' });
+    state.progressHideTimer = setTimeout(() => {
+      els.progressBanner.hidden = true;
+    }, 2000);
+    updateControls();
+    els.promptInput.focus();
+  } else if (type === 'token') {
+    if (data.requestId !== state.requestCounter || !state.activeAssistantBody) return;
+    state.activeAssistantText += data.text;
+    state.activeAssistantBody.innerHTML = renderMarkdown(state.activeAssistantText);
+    if (els.prefShowStats.checked) {
+      state.activeAssistantMeta.hidden = false;
+      state.activeAssistantMeta.textContent =
+        `${data.device.toUpperCase()} • ${data.tokenCount} tokens • ${data.tokensPerSecond} tok/s` +
+        (data.ttftMs ? ` • TTFT ${data.ttftMs}ms` : '');
+    }
+    if (els.prefAutoScroll.checked) {
+      els.chatScroll.scrollTop = els.chatScroll.scrollHeight;
+    }
+  } else if (type === 'done') {
+    if (data.requestId !== state.requestCounter) return;
     const finalReply = state.activeAssistantText.trim();
-    if (finalReply) {
-      state.activeAssistantBody.innerHTML = renderMarkdown(finalReply);
-      session.messages.push({ role: 'assistant', content: finalReply, meta: finalMeta });
-    } else if (wasInterrupted) {
-      state.activeAssistantBody.innerHTML = '<p>(Đã dừng)</p>';
+    const metaText =
+      `${data.device.toUpperCase()} (${data.dtype}) • ${data.tokenCount} tokens • ` +
+      `${data.tokensPerSecond} tok/s • TTFT ${data.ttftMs}ms • ${(data.totalMs / 1000).toFixed(2)}s` +
+      (data.interrupted ? ' • Đã dừng' : '');
+
+    if (state.activeAssistantBody) {
+      state.activeAssistantBody.innerHTML = renderMarkdown(finalReply || '(Không có phản hồi)');
     }
-    if (state.activeAssistantMeta && finalMeta) {
+    if (state.activeAssistantMeta) {
       state.activeAssistantMeta.hidden = !els.prefShowStats.checked;
-      state.activeAssistantMeta.textContent = finalMeta;
+      state.activeAssistantMeta.textContent = metaText;
+    }
+
+    const session = getActiveSession();
+    if (session && finalReply) {
+      session.messages.push({ role: 'assistant', content: finalReply, meta: metaText });
     }
 
     state.isGenerating = false;
-    state.abortController = null;
     state.activeAssistantBody = null;
     state.activeAssistantMeta = null;
     updateControls();
+  } else if (type === 'unloaded') {
+    state.isReady = false;
+    state.isLoading = false;
+    setStatus('', 'Chưa nạp');
+    showBanner({
+      label: 'Đã giải phóng RAM. Hãy nạp lại model để tiếp tục trò chuyện.',
+      percent: 0,
+      numbersText: 'Chưa nạp',
+      required: true,
+      showLoadBtn: true,
+    });
+    updateControls();
+  } else if (type === 'cache-cleared') {
+    showBanner({
+      label: 'Đã xóa cache model trên trình duyệt.',
+      percent: state.isReady ? 100 : 0,
+      numbersText: state.isReady ? '100%' : '0%',
+      required: !state.isReady,
+      showLoadBtn: !state.isReady,
+    });
+  } else if (type === 'error') {
+    state.isLoading = false;
+    state.isGenerating = false;
+    setStatus('error', 'Lỗi');
+    showBanner({
+      label: `Lỗi: ${data.message}`,
+      percent: 0,
+      numbersText: 'Lỗi',
+      required: true,
+      showLoadBtn: true,
+    });
+    if (state.activeAssistantBody) {
+      state.activeAssistantBody.innerHTML = `<p>Lỗi khi sinh văn bản: ${data.message}</p>`;
+      state.activeAssistantBody = null;
+    }
+    updateControls();
   }
-}
+});
 
 // Sidebar toggles
 els.leftToggleBtn.addEventListener('click', () => {
@@ -597,11 +610,9 @@ els.settingsTabs.forEach((tabBtn) => {
 els.prefFontSize.addEventListener('change', applyUiSettings);
 els.prefDensity.addEventListener('change', applyUiSettings);
 els.prefShowStarters.addEventListener('change', applyUiSettings);
-els.modalClearCacheBtn.addEventListener('click', async () => {
-  if (typeof caches !== 'undefined') {
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => caches.delete(k)));
-  }
+els.modalClearCacheBtn.addEventListener('click', () => {
+  if (state.isLoading || state.isGenerating) return;
+  worker.postMessage({ type: 'clear-cache' });
   els.settingsModal.hidden = true;
 });
 els.modalClearHistoryBtn.addEventListener('click', () => {
@@ -616,12 +627,16 @@ els.prefShowStats.addEventListener('change', () => {
   });
 });
 
-// Server connection checks
-els.loadBtn.addEventListener('click', pollServerHealth);
-els.bannerLoadBtn.addEventListener('click', pollServerHealth);
+// Model actions
+els.loadBtn.addEventListener('click', startLoadModel);
+els.bannerLoadBtn.addEventListener('click', startLoadModel);
+els.unloadBtn.addEventListener('click', () => {
+  if (state.isGenerating) return;
+  worker.postMessage({ type: 'unload' });
+});
 els.actionBtn.addEventListener('click', () => {
   if (state.isGenerating) {
-    state.abortController?.abort();
+    worker.postMessage({ type: 'interrupt' });
     return;
   }
   els.chatForm.requestSubmit();
@@ -747,4 +762,5 @@ els.chatMessages.addEventListener('click', async (e) => {
 createSession();
 applyUiSettings();
 updateControls();
-pollServerHealth();
+worker.postMessage({ type: 'init' });
+startLoadModel();

@@ -1,20 +1,33 @@
 import { defineConfig } from 'vite';
 
+function stripOversizedOrtwasmPlugin(limitBytes = 20_000_000) {
+  return {
+    name: 'strip-oversized-ortwasm',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      for (const [fileName, chunkOrAsset] of Object.entries(bundle)) {
+        if (/ort-wasm-.*\.wasm$/.test(fileName) && chunkOrAsset.type === 'asset') {
+          const byteLen =
+            typeof chunkOrAsset.source === 'string'
+              ? Buffer.byteLength(chunkOrAsset.source)
+              : chunkOrAsset.source.byteLength;
+          if (byteLen > limitBytes) {
+            delete bundle[fileName];
+          }
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:3001',
-        changeOrigin: true,
-      },
-    },
+  base: './',
+  plugins: [stripOversizedOrtwasmPlugin()],
+  worker: {
+    format: 'es',
+    plugins: () => [stripOversizedOrtwasmPlugin()],
   },
-  preview: {
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:3001',
-        changeOrigin: true,
-      },
-    },
+  optimizeDeps: {
+    exclude: ['@huggingface/transformers'],
   },
 });

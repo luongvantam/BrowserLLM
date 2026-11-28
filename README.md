@@ -1,46 +1,19 @@
-# BrowserLLM — Server-Side AI Chat (0 MB Client Download)
+# BrowserLLM — 100% Free GitHub Pages AI Chat (WebGPU & WASM)
 
-Ứng dụng chat AI giao diện phong cách ChatGPT, **chạy model trên Backend Server** (`server/index.mjs`) để người dùng mở web lên là sử dụng ngay lập tức mà **không cần tải 800 MB – 2 GB về trình duyệt**.
+Ứng dụng AI chạy **100% trên trình duyệt** (không cần thuê server, deploy miễn phí hoàn toàn lên **GitHub Pages**):
+- **WebGPU (`q4`)**: `Qwen3.5-0.8B` (`onnx-community/Qwen3.5-0.8B-Text-ONNX`, ~550 MB) — thế hệ Qwen 3.5 mới, tải nhanh và tự cache vào trình duyệt cho các lần mở sau.
+- **WASM CPU fallback (`q8`)**: tự động chuyển sang `Qwen2.5-Coder-0.5B-Instruct` trên các thiết bị không có WebGPU.
 
-## Kiến trúc
+## Triển khai miễn phí lên GitHub Pages
 
-- **Backend Server (`server/index.mjs`)**:
-  - Hỗ trợ **chế độ tự chạy trực tiếp bằng Node.js** (`@huggingface/transformers` + `onnxruntime-node` / `onnxruntime-web` fallback), tự tải & lưu cache model trên ổ đĩa server (`.model-cache/server-hf/`) và stream token qua SSE (`POST /api/chat`).
-  - Hỗ trợ **chế độ kết nối Upstream API** (Ollama / vLLM / OpenAI-compatible) qua biến môi trường `LLM_API_URL` (ví dụ `http://127.0.0.1:11434/v1`) và `MODEL_ID` (ví dụ `qwen3:4b`).
-  - Phục vụ trực tiếp bản build tĩnh `dist/` trong production (`npm start`).
-- **Frontend (`src/`)**:
-  - Bố cục 2 sidebar trái/phải, hỗ trợ đính kèm & đọc file code/văn bản đầu vào, nút Gửi/Dừng hợp nhất, khối `<think>...</think>` thu gọn và hộp thoại Cài đặt (UI, Cá nhân hóa & Dữ liệu, Giấy phép MIT).
+1. Push code lên GitHub (`main`) — đã có sẵn workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+2. Vào **Settings → Pages** của repo trên GitHub, chọn **Source: GitHub Actions**.
+3. GitHub Actions sẽ tự động `npm run build`, kiểm tra giới hạn `<= 20 MB`/file và xuất bản lên `https://<username>.github.io/BrowserLLM/`.
 
-## Cách chạy
+## Chạy local
 
 ```bash
-# 1. Cài dependencies
 npm install
-
-# 2. Build frontend
-npm run build
-
-# 3. Chạy server (mở http://localhost:3001)
-npm start
-```
-
-### Tùy chọn biến môi trường cho Server
-
-```bash
-# Chạy model ONNX trực tiếp trên server (mặc định: Qwen2.5-Coder-1.5B-Instruct q4)
-MODEL_ID="onnx-community/Qwen3-4B-Thinking-2507-ONNX" MODEL_DTYPE="q4" npm start
-
-# Hoặc nối vào Ollama / vLLM chạy sẵn trên server GPU
-LLM_API_URL="http://127.0.0.1:11434/v1" MODEL_ID="qwen3:4b" npm start
-```
-
-### Chạy môi trường dev (Vite + Server song song)
-
-```bash
-# Terminal 1: chạy AI server ở cổng 3001
-npm run server
-
-# Terminal 2: chạy Vite dev server (tự proxy /api -> :3001)
 npm run dev
 ```
 

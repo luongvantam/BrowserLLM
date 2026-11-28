@@ -30,10 +30,10 @@ const METADATA_FILES = [
 
 function parseArgs(argv) {
   const opts = {
-    repo: 'onnx-community/Qwen3-4B-Thinking-2507-ONNX',
+    repo: 'onnx-community/Qwen3.5-0.8B-Text-ONNX',
     variants: ['q4'],
     chunkSize: 20_000_000,
-    out: 'public/models/qwen3-4b-thinking',
+    out: 'public/models/qwen3.5-0.8b',
     cleanCache: false,
   };
 

@@ -4,11 +4,9 @@
   "private": false,
   "license": "MIT",
   "type": "module",
-  "description": "Gemma 3 1B browser AI (<=20MB chunks, RAM-only streaming, WebGPU + WASM)",
+  "description": "Qwen3.5-0.8B browser AI (WebGPU + WASM fallback, zero-server GitHub Pages)",
   "scripts": {
     "dev": "vite",
-    "server": "node server/index.mjs",
-    "start": "node server/index.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "prepare-model": "node scripts/prepare-model.mjs",

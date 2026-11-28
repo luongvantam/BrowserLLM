@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23171717'/%3E%3Cpath d='M32 14l4.5 13.5L50 32l-13.5 4.5L32 50l-4.5-13.5L14 32l13.5-4.5z' fill='%2310a37f'/%3E%3C/svg%3E" />
-  <title>Qwen3-4B-Thinking • BrowserLLM</title>
+  <title>Qwen3.5-0.8B • BrowserLLM</title>
 </head>
 
 <body>
@@ -58,7 +58,7 @@
             </svg>
           </button>
           <div class="model-title">
-            <span>Qwen3-4B Thinking</span>
+            <span>Qwen3.5-0.8B</span>
             <span class="backend-pill" id="backend-pill">Chưa nạp</span>
           </div>
         </div>
@@ -73,16 +73,16 @@
         </div>
       </header>
 
-      <!-- COMPACT SERVER STATUS / PROGRESS BANNER -->
+      <!-- COMPACT AUTO-LOAD / PROGRESS BANNER -->
       <div class="progress-banner" id="progress-banner">
         <div class="progress-row">
           <div class="progress-info">
             <span class="progress-label" id="progress-label">
-              Đang kết nối tới AI Server...
+              Đang tự động khởi tạo &amp; nạp Qwen3.5-0.8B...
             </span>
             <span class="progress-numbers" id="progress-numbers">0%</span>
           </div>
-          <button id="banner-load-btn" class="banner-load-btn" type="button" hidden>Thử kết nối lại</button>
+          <button id="banner-load-btn" class="banner-load-btn" type="button" hidden>Nạp lại</button>
         </div>
         <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           id="progress-track">
@@ -100,7 +100,7 @@
             </div>
             <h1>Hôm nay tôi có thể giúp gì cho bạn?</h1>
             <p>
-              Chạy trực tiếp trên <strong>AI Server</strong> — mở web lên là dùng ngay lập tức, <strong>không cần tải model về máy người dùng</strong>.
+              Chạy <strong>Qwen3.5-0.8B</strong> (~550 MB trên WebGPU, tự fallback sang <strong>Qwen2.5-Coder-0.5B</strong> trên WASM) hoàn toàn miễn phí ngay trên trình duyệt, tự động cache cho các lần mở sau.
             </p>
             <div class="starter-grid">
               <button class="starter-card" type="button"
@@ -175,14 +175,25 @@
         <section class="panel-block">
           <div class="model-card-title">
             <span class="status-dot" id="status-dot"></span>
-            <strong id="server-model-name">Server AI</strong>
-            <span class="tag">0 MB Client</span>
+            <strong>Qwen3.5-0.8B</strong>
+            <span class="tag">~550 MB • Free</span>
           </div>
           <div class="caps-list" id="caps-badges">
-            <span class="cap-pill">Đang kiểm tra server...</span>
+            <span class="cap-pill">Đang kiểm tra phần cứng...</span>
           </div>
+          <label class="field-label">
+            <span>Backend thực thi</span>
+            <select id="backend-select" aria-label="Chọn backend thực thi">
+              <option value="auto">Tự động (WebGPU → WASM)</option>
+              <option value="webgpu">WebGPU (Qwen3.5-0.8B q4)</option>
+              <option value="wasm">WASM CPU (Coder-0.5B q8)</option>
+            </select>
+          </label>
           <div class="model-btn-row">
-            <button id="load-btn" class="btn-secondary" type="button">Kiểm tra kết nối</button>
+            <button id="load-btn" class="btn-secondary" type="button">Nạp lại</button>
+            <button id="unload-btn" class="btn-ghost" type="button" disabled title="Giải phóng RAM ngay">
+              Giải phóng RAM
+            </button>
           </div>
         </section>
 
@@ -365,7 +376,7 @@
               <p>Mã nguồn ứng dụng được phát hành theo giấy phép <strong>MIT License</strong> (Copyright &copy; 2026 luongvantam).</p>
             </div>
             <div class="license-card">
-              <strong>Qwen3-4B-Thinking-2507 &amp; Qwen2.5-Coder-1.5B (ONNX)</strong>
+              <strong>Qwen3.5-0.8B &amp; Qwen2.5-Coder-0.5B (ONNX)</strong>
               <p>Mô hình lập trình &amp; suy luận thuộc dòng Qwen của Alibaba, phát hành theo giấy phép <em>Apache-2.0</em>.</p>
             </div>
             <div class="license-card">
